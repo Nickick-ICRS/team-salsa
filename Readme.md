@@ -21,7 +21,7 @@ conda create -n salsa_env python=3.10
 You may need to fix permissions:
 ```
 sudo chown -R 1000:1000 ./
-sudo chown -R 1000:1000 /path/to/conda/packages
+sudo chown -R 1000:1000 /usr/local/conda/
 ```
 
 Install dial-mpc:
