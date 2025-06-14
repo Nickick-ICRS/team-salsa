@@ -1,0 +1,3 @@
+[submodule "dial-mpc"]
+	path = dial-mpc
+	url = ./dial-mpc/

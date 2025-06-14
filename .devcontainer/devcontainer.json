@@ -1,0 +1,27 @@
+{
+  "name": "Hackathon rolling desktop-full",
+  "dockerFile": "Dockerfile",
+  "runArgs": [
+    "--privileged",
+    "--network=host"
+  ],
+  "workspaceMount": "source=${localWorkspaceFolder},target=/${localWorkspaceFolderBasename},type=bind",
+  "workspaceFolder": "/${localWorkspaceFolderBasename}",
+  "mounts": [
+    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.bash_history,target=/home/vscode/.bash_history,type=bind"
+],
+"features": {
+	"ghcr.io/devcontainers/features/git:1": {},
+	"ghcr.io/devcontainers/features/nvidia-cuda:1": {
+    "cudaVersion": "12.6"
+  },
+	"ghcr.io/devcontainers/features/python:1": {},
+  "ghcr.io/devcontainers/features/anaconda": {
+    "version": "latest",
+    "installVSCodeExtension": true
+  }
+},
+"hostRequirements": {
+  "gpu": "optional"
+}
+}
