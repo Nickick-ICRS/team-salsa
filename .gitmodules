@@ -1,0 +1,3 @@
+[submodule "pointfoot-legged-gym"]
+	path = pointfoot-legged-gym
+	url = git@github.com:limxdynamics/pointfoot-legged-gym.git

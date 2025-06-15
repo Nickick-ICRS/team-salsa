@@ -8,31 +8,12 @@ git clone --recurse-submodules -j8 git://github.com/Nickick-ICRS/team-salsa
 cd team-salsa
 ```
 
-Activate the docker environment provided
-```
-TODO
-```
-
 Create a conda environment, ensuring that you use Python version 3.10:
 ```
-conda create -n salsa_env python=3.10
+conda create -n salsa_env python=3.8
 ```
 
-You may need to fix permissions:
-```
-sudo chown -R 1000:1000 ./
-sudo chown -R 1000:1000 /usr/local/conda/
-```
-
-Install dial-mpc:
-```
-cd dial-mpc && pip install -e .
-```
-
-Make sure dial-mpc works:
-```
-dial-mpc --list-examples
-```
+Install legged gym following the instructions in the submodule
 
 cd to our folder:
 ```
