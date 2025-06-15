@@ -6,7 +6,7 @@ import websocket
 from datetime import datetime
 
 # Replace this ACCID value with your robot's actual serial number (SN)
-ACCID = "WF_TRON1A_154"
+ACCID = "SF_TRON1A_154"
 
 # Atomic flag for graceful exit
 should_exit = False
@@ -59,31 +59,31 @@ def handle_commands():
             z = float(input("Enter z value:"))
             send_request("request_twist", {"x": x, "y": y, "z": z})
         elif command == "salsa":
-            for _ in range(1):
-                send_request("request_twist", {"x": 5.0, "y": 0.0, "z": 0.0})
+            for _ in range(3):
+                send_request("request_twist", {"x": 1.0, "y": 0.0, "z": 0.0})
                 send_request("request_light_effect", {"effect": 4})
-                time.sleep(4.0)
-                # send_request("request_twist", {"x": -1.0, "y": 0.0, "z": 0.0})
-                # send_request("request_light_effect", {"effect": 5})
-                # time.sleep(1.0)
-                # send_request("request_twist", {"x": -1.0, "y": 0.0, "z": 0.0})
-                # send_request("request_light_effect", {"effect": 2})
-                # time.sleep(0.5)
-                # send_request("request_twist", {"x": 1.0, "y": 0.0, "z": 0.0})
-                # send_request("request_light_effect", {"effect": 6})
-                # time.sleep(0.5)
-                # send_request("request_twist", {"x": 0.0, "y": 1.0, "z": 0.0})
-                # send_request("request_light_effect", {"effect": 7})
-                # time.sleep(0.5)
-                # send_request("request_twist", {"x": 0.0, "y": -1.0, "z": 0.0})
-                # send_request("request_light_effect", {"effect": 1})
-                # time.sleep(1.0)
-                # send_request("request_twist", {"x": 0.0, "y": -1.0, "z": 0.0})
-                # send_request("request_light_effect", {"effect": 3})
-                # time.sleep(0.5)
-                # send_request("request_twist", {"x": 0.0, "y": 1.0, "z": 0.0})
-                # send_request("request_light_effect", {"effect": 18})
-                # time.sleep(0.5)
+                time.sleep(0.5)
+                send_request("request_twist", {"x": -1.0, "y": 0.0, "z": 0.0})
+                send_request("request_light_effect", {"effect": 5})
+                time.sleep(1.0)
+                send_request("request_twist", {"x": -1.0, "y": 0.0, "z": 0.0})
+                send_request("request_light_effect", {"effect": 2})
+                time.sleep(0.5)
+                send_request("request_twist", {"x": 1.0, "y": 0.0, "z": 0.0})
+                send_request("request_light_effect", {"effect": 6})
+                time.sleep(0.5)
+                send_request("request_twist", {"x": 0.0, "y": 1.0, "z": 0.0})
+                send_request("request_light_effect", {"effect": 7})
+                time.sleep(0.5)
+                send_request("request_twist", {"x": 0.0, "y": -1.0, "z": 0.0})
+                send_request("request_light_effect", {"effect": 1})
+                time.sleep(1.0)
+                send_request("request_twist", {"x": 0.0, "y": -1.0, "z": 0.0})
+                send_request("request_light_effect", {"effect": 3})
+                time.sleep(0.5)
+                send_request("request_twist", {"x": 0.0, "y": 1.0, "z": 0.0})
+                send_request("request_light_effect", {"effect": 18})
+                time.sleep(0.5)
         elif command == "sit":
             send_request("request_sitdown")  # Send sit down request
         elif command == "stair":
