@@ -2,7 +2,6 @@ import numpy as np
 import mujoco
 import mujoco.viewer
 from pathlib import Path
-import os
 
 
 def load_tron1_model():
@@ -29,18 +28,16 @@ def solve_ik(model, sim, foot_targets, foot_contact, default_z=0.2, max_iters=10
         left_pos = sim.xpos[left_body_id]
         right_pos = sim.xpos[right_body_id]
         targets = [foot_targets[0], foot_targets[1]]
-        contacts = [foot_contact[0], foot_contact[1]]
         foot_pos = [left_pos, right_pos]
 
         # Build error and jacobian
         err = []
         jac_list = []
         for i in range(2):
-            if contacts[i] or not contacts[i]:
-                err.append(targets[i] - foot_pos[i])
-                jacp = np.zeros((3, model.nv))
-                mujoco.mj_jacBody(model, sim, jacp, None, body_ids[i])
-                jac_list.append(jacp)
+            err.append(targets[i] - foot_pos[i])
+            jacp = np.zeros((3, model.nv))
+            mujoco.mj_jacBody(model, sim, jacp, None, body_ids[i])
+            jac_list.append(jacp)
         if not err:
             break
         err = np.concatenate(err)
@@ -54,6 +51,7 @@ def solve_ik(model, sim, foot_targets, foot_contact, default_z=0.2, max_iters=10
         mujoco.mj_forward(model, sim)
         if np.linalg.norm(err) < tol:
             break
+        print(err)
     return sim.qpos.copy()
 
 
