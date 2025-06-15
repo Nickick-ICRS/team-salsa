@@ -60,6 +60,7 @@ def visualise_reference(reference_path):
     foot_contacts = data["foot_contacts"]
     foot_xy_rel_hip = data["foot_xy_rel_hip"]  # (n_frames, 2, 2)
     hip_height = data["hip_height"]            # (n_frames,)
+    hip_xy = data["hip_xy_pos"]
     hip_orient_quat = data["hip_orient_quat"]  # (n_frames, 4)
     n_frames = foot_xy_rel_hip.shape[0]
 
@@ -70,13 +71,12 @@ def visualise_reference(reference_path):
         i = 0
         while viewer.is_running():
             # Hip position and orientation
-            hip_z = hip_height[i] / 100.0
-            hip_quat = hip_orient_quat[i]
+            hip_z = hip_height[i]
             # Compute world hip position
-            hip_pos = np.array([0, 0, hip_z])
+            hip_pos = np.array([hip_xy[i, 0], hip_xy[i, 1], hip_z])
             # Compute foot targets in world frame
-            left_xy = foot_xy_rel_hip[i, 0] / 100.0
-            right_xy = foot_xy_rel_hip[i, 1] / 100.0
+            left_xy = foot_xy_rel_hip[i, 0]
+            right_xy = foot_xy_rel_hip[i, 1]
             left_target = hip_pos + np.array([left_xy[0], left_xy[1], -0.2])
             right_target = hip_pos + np.array([right_xy[0], right_xy[1], -0.2])
             foot_targets = np.stack([left_target, right_target])

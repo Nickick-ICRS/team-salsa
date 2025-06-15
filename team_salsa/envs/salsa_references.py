@@ -6,31 +6,12 @@ from scipy.spatial.transform import Rotation as R
 class SalsaReference:
     def __init__(self, filepath, device):
         self.filepath = filepath
-        if 'foot' in filepath:
-            self.type = 'foot'
-        elif 'joint' in filepath:
-            self.type = 'joint'
-        self.data = torch.from_numpy(self.load_data_foot(self.type), dtype=torch.float32, device=device) 
+        self.data = torch.from_numpy(self.load_data()).to(device) 
 
-    def load_data(self, type):
-        try:
-            data = np.load(self.filepath, allow_pickle=True).item()
-            if type == 'foot':
-                assert 'foot_pos_l' in data.keys() and 'foot_pos_r' in data.keys(), "Foot positions not found in data."
-                assert 'chassis_orient' in data.keys(), "Chassis orientation not found in data."
-                assert 'chassis_acc' in data.keys(), "Chassis acceleration not found in data."
-                data['chassis_orient'][:] = self._make_orientation_relative(data['chassis_orient'])
-                return data['foot_references']
-            elif type == 'joint':
-                assert 'joint_pos' in data.keys(), "Joint references not found in data."
-                assert 'chassis_orient' in data.keys(), "Chassis orientation not found in data."
-                assert 'chassis_acc' in data.keys(), "Chassis acceleration not found in data."
-                data['chassis_orient'][:] = self._make_orientation_relative(data['chassis_orient'])
-                return data['joint_references']
-            else:
-                raise ValueError("Unknown type. Must be 'foot' or 'joint'.")
-        except Exception as e:
-            raise ValueError(f"Error loading data from {self.filepath}: {e}")
+    def load_data(self):
+        data = np.load(self.filepath, allow_pickle=True)['full_ordered']
+        data[:, 6:10] = self._make_orientation_relative(data[:, 6:10])
+        return data
 
     def _make_orientation_relative(self, quats):
         # TODO: Make sure we're xyzw not wxyz

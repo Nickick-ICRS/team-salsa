@@ -29,19 +29,22 @@
 #
 # Copyright (c) 2021 ETH Zurich, Nikita Rudin
 from legged_gym.envs.base.base_config import BaseConfig
+from pathlib import Path
 
-class BipedCfgSF(BaseConfig):
+
+class SalsaCfgSF(BaseConfig):
     class env:
         num_envs = 8192
         # num_privileged_group = 0 # 4096
         # num_proprio_group = num_envs - num_privileged_group
         # Include the bpm (freq) and target move id
         num_observations = 36 + 1 + 1  # note: only proprioceptive observations with last action, does not include command and gait
-        num_critic_observations = 3 + num_observations + 13 # add lin_vel to the front, and the current reference
+        num_propriceptive_obs = num_observations
+        num_critic_obs = num_observations + 13 # add the current reference
         num_height_samples = 117
-        # num_privileged_obs = (
-            # num_observations + 3 + 12 + num_height_samples + 6 + 20 + 6
-        # )  # if not None a priviledge_obs_buf will be returned by step() (critic obs for assymetric training). None is returned otherwise
+        num_privileged_obs = (
+            num_observations + 3 + 12 + num_height_samples + 6 + 20 + 6
+        )  # if not None a priviledge_obs_buf will be returned by step() (critic obs for assymetric training). None is returned otherwise
         num_actions = 8
         env_spacing = 3.0  # not used with heightfields/trimeshes
         send_timeouts = True  # send time out information to the algorithm
@@ -55,7 +58,7 @@ class BipedCfgSF(BaseConfig):
         bpm_max = 180
         foot_height = 0.1
         # foot_height_range = [0.05, 0.2]
-        reference_files = []
+        reference_files = [Path(__file__).parent.parent / "references/generated/basic_step.npz"]
 
     class terrain:
         mesh_type = "plane"  # "heightfield" # none, plane, heightfield or trimesh
@@ -254,16 +257,16 @@ class BipedCfgSF(BaseConfig):
 
             salsa_foot_contact = 5.0
             salsa_foot_xy = 2.0
-            salsa_chassis_velocity = 0.3
+            salsa_chassis_xy = 0.5
             salsa_chassis_orient = 4.0
             salsa_chassis_height = 0.2
 
-            tracking_lin_vel_x = 1.5
-            tracking_lin_vel_y = 1.5
-            tracking_ang_vel = 1
+            # tracking_lin_vel_x = 1.5
+            # tracking_lin_vel_y = 1.5
+            # tracking_ang_vel = 1
 
             # regulation related rewards
-            base_height = -10
+            # base_height = -10
             lin_vel_z = -0.5
             ang_vel_xy = -0.05
             torques = -0.00008
@@ -365,13 +368,13 @@ class BipedCfgSF(BaseConfig):
             )
 
 
-class BipedCfgPPOSF(BaseConfig):
+class SalsaCfgPPOSF(BaseConfig):
     seed = 1
     runner_class_name = "OnPolicyRunner"
 
     class MLP_Encoder:
         output_detach = True
-        num_input_dim = BipedCfgSF.env.num_observations * BipedCfgSF.env.obs_history_length
+        num_input_dim = SalsaCfgSF.env.num_observations * SalsaCfgSF.env.obs_history_length
         num_output_dim = 3
         hidden_dims = [256, 128]
         activation = "elu"
