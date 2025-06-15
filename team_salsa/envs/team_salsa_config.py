@@ -38,18 +38,15 @@ class SalsaCfgSF(BaseConfig):
         # num_privileged_group = 0 # 4096
         # num_proprio_group = num_envs - num_privileged_group
         # Include the bpm (freq) and target move id
-        num_observations = 36 + 1 + 1  # note: only proprioceptive observations with last action, does not include command and gait
+        num_observations = 33 + 1 + 1  # note: only proprioceptive observations with last action, does not include command and gait
         num_propriceptive_obs = num_observations
         num_critic_obs = num_observations + 13 # add the current reference
-        num_height_samples = 117
-        num_privileged_obs = (
-            num_observations + 3 + 12 + num_height_samples + 6 + 20 + 6
-        )  # if not None a priviledge_obs_buf will be returned by step() (critic obs for assymetric training). None is returned otherwise
+        num_privileged_obs = num_critic_obs
         num_actions = 8
         env_spacing = 3.0  # not used with heightfields/trimeshes
         send_timeouts = True  # send time out information to the algorithm
         episode_length_s = 20  # episode length in seconds
-        obs_history_length = 5  # number of observations stacked together
+        obs_history_length = 1  # number of observations stacked together
         dof_vel_use_pos_diff = True
         fail_to_terminal_time_s = 0.5
 
@@ -58,7 +55,7 @@ class SalsaCfgSF(BaseConfig):
         bpm_max = 180
         foot_height = 0.1
         # foot_height_range = [0.05, 0.2]
-        reference_files = [Path(__file__).parent.parent / "references/generated/basic_step.npz"]
+        reference_files = ["/home/nick/team-salsa/team_salsa/references/generated/basic_step.npz"]
 
     class terrain:
         mesh_type = "plane"  # "heightfield" # none, plane, heightfield or trimesh
@@ -115,7 +112,7 @@ class SalsaCfgSF(BaseConfig):
         non_smooth_max_lin_vel_y = 1.0
         max_ang_vel_yaw = 3.0
         curriculum_threshold = 0.75
-        num_commands = 3 + 2  # default: lin_vel_x, lin_vel_y, ang_vel_yaw, heading (in heading mode ang_vel_yaw is recomputed from heading error)
+        num_commands = 3  # default: lin_vel_x, lin_vel_y, ang_vel_yaw, heading (in heading mode ang_vel_yaw is recomputed from heading error)
         resampling_time = 5.0  # time before command are changed[s]
         heading_command = False  # if true: compute ang vel command from heading error, only work on adaptive group
         min_norm = 0.1

@@ -57,7 +57,7 @@ class PointFootSalsa:
         self.num_actions = cfg.env.num_actions
         self.num_critic_obs = cfg.env.num_critic_obs
         self.num_commands = 3
-        self.obs_history_length = 0
+        self.obs_history_length = cfg.env.obs_history_length
 
         # optimization flags for pytorch JIT
         torch._C._jit_set_profiling_mode(False)
@@ -103,7 +103,7 @@ class PointFootSalsa:
         self.init_done = True
 
     def get_observations(self):
-        return self.proprioceptive_obs_buf
+        return self.proprioceptive_obs_buf, self.proprioceptive_obs_buf, self.commands, self.get_privileged_observations()
 
     def get_privileged_observations(self):
         return self.privileged_obs_buf
@@ -111,7 +111,7 @@ class PointFootSalsa:
     def reset(self):
         """ Reset all robots"""
         self.reset_idx(torch.arange(self.num_envs, device=self.device))
-        obs, privileged_obs, _, _, _ = self.step(
+        obs, _, _, _, _, _, privileged_obs = self.step(
             torch.zeros(self.num_envs, self.num_actions, device=self.device, requires_grad=False))
         return obs, privileged_obs
 
@@ -164,7 +164,7 @@ class PointFootSalsa:
         self.proprioceptive_obs_buf = torch.clip(self.proprioceptive_obs_buf, -clip_obs, clip_obs)
         if self.privileged_obs_buf is not None:
             self.privileged_obs_buf = torch.clip(self.privileged_obs_buf, -clip_obs, clip_obs)
-        return self.proprioceptive_obs_buf, self.privileged_obs_buf, self.rew_buf, self.reset_buf, self.extras
+        return self.proprioceptive_obs_buf, self.rew_buf, self.reset_buf, self.extras, self.proprioceptive_obs_buf, self.commands, self.privileged_obs_buf
 
     def post_physics_step(self):
         """ check terminations, compute observations and rewards
@@ -269,7 +269,7 @@ class PointFootSalsa:
         if self.cfg.env.send_timeouts:
             self.extras["time_outs"] = self.time_out_buf
 
-        self.start_xy[env_ids] = self.root_states[env_ids]
+        self.start_xy[env_ids] = self.root_states[env_ids, :2]
         self.phases[env_ids] = 0.
 
     def _reset_buffers(self, env_ids):
@@ -336,12 +336,15 @@ class PointFootSalsa:
         # Wheel pos maybe unbounded when training,
         # since wheels are in velocity control mode, we don't wheel pos obs.
 
-        self.privileged_obs_buf = torch.cat((self.base_ang_vel * self.obs_scales.ang_vel,
+        self.privileged_obs_buf = torch.cat((self.obs_scales.ang_vel * self.base_ang_vel,
                                              self.projected_gravity,
                                              (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
                                              self.dof_vel * self.obs_scales.dof_vel,
                                              self.actions,
                                              self.commands[:, :3] * self.commands_scale,
+                                             self.phases.unsqueeze(-1),
+                                             self.reference_idxs.unsqueeze(-1),
+                                             self.references.get_references(self.reference_idxs, self.phases)
                                              ), dim=-1)
         # print(self.base_ang_vel.size(), self.projected_gravity.size(), self.dof_pos.size(), \
         #     self.dof_vel.size(), self.actions.size(), self.commands[:, :3].size(), self.privileged_obs_buf.size())
@@ -361,15 +364,14 @@ class PointFootSalsa:
         return buf
 
     def _compose_proprioceptive_obs_buf_no_height_measure(self):
-
-        self.proprioceptive_obs_buf = torch.cat((self.base_ang_vel * self.obs_scales.ang_vel,
+        self.proprioceptive_obs_buf = torch.cat((self.obs_scales.ang_vel * self.base_ang_vel,
                                              self.projected_gravity,
                                              (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
                                              self.dof_vel * self.obs_scales.dof_vel,
                                              self.actions,
                                              self.commands[:, :3] * self.commands_scale,
-                                             self.phases,
-                                             self.reference_idxs,
+                                             self.phases.unsqueeze(-1),
+                                             self.reference_idxs.unsqueeze(-1),
                                              ), dim=-1)
 
     def create_sim(self):
@@ -489,21 +491,16 @@ class PointFootSalsa:
         self.commands[env_ids, 1] = torch_rand_float(self.command_ranges["lin_vel_y"][0],
                                                      self.command_ranges["lin_vel_y"][1], (len(env_ids), 1),
                                                      device=self.device).squeeze(1)
-        if self.cfg.commands.heading_command:
-            self.commands[env_ids, 3] = torch_rand_float(self.command_ranges["heading"][0],
-                                                         self.command_ranges["heading"][1], (len(env_ids), 1),
-                                                         device=self.device).squeeze(1)
-        else:
-            self.commands[env_ids, 2] = torch_rand_float(self.command_ranges["ang_vel_yaw"][0],
-                                                         self.command_ranges["ang_vel_yaw"][1], (len(env_ids), 1),
-                                                         device=self.device).squeeze(1)
+        self.commands[env_ids, 2] = torch_rand_float(self.command_ranges["ang_vel_yaw"][0],
+                                                     self.command_ranges["ang_vel_yaw"][1], (len(env_ids), 1),
+                                                     device=self.device).squeeze(1)
 
         # set small commands to zero
         self.commands[env_ids, :2] *= (torch.norm(self.commands[env_ids, :2], dim=1) > 0.2).unsqueeze(1)
 
     def _update_reference_phase(self, dt):
-        self.phase += dt * self.cmd_freq
-        complete = self.phase >= 1
+        self.phases += dt * self.cmd_freq
+        complete = self.phases >= 1
         if torch.any(complete):
             n_refs = self.references.get_reference_count()
             new_idxs = torch.randint(0, n_refs, (complete.sum(),), device=self.device)
@@ -535,11 +532,13 @@ class PointFootSalsa:
             [torch.Tensor]: Torques sent to the simulation
         """
         # pd controller
-        action_scale_pos = self.cfg.control.action_scale_pos
+        action_scale_pos = self.cfg.control.action_scale
         control_type = self.cfg.control.control_type
         if control_type == "P_AND_V":
             torques = self.p_gains * (
                     action_scale_pos * actions + self.default_dof_pos - self.dof_pos) - self.d_gains * self.dof_vel
+        elif control_type == "P":
+            torques = self.p_gains * (action_scale_pos * actions + self.default_dof_pos - self.dof_pos)
         else:
             raise NameError(f"Unknown controller type: {control_type}")
         return torch.clip(torques, -self.torque_limits, self.torque_limits)
@@ -983,7 +982,7 @@ class PointFootSalsa:
         if self._include_feet_height_rewards:
             self.last_max_feet_height = self.current_max_feet_height * self.first_contact + self.last_max_feet_height * ~self.first_contact
             self.current_max_feet_height *= ~self.contact_filt
-            self.feet_height = self.feet_state[:, :, 2] - self._get_heights_below_foot()
+            self.feet_height = self.feet_state[:, :, 2]
             self.current_max_feet_height = torch.max(self.current_max_feet_height,
                                                      self.feet_height)
         contact = self.contact_forces[:, self.feet_indices, 2] > 1.
@@ -997,7 +996,6 @@ class PointFootSalsa:
             (
                     self.foot_positions[:, :, 2]
                     - self.cfg.asset.foot_radius
-                    - self._get_foot_heights()
             ),
             0,
             1,
@@ -1032,7 +1030,7 @@ class PointFootSalsa:
 
     def _reward_salsa_chassis_xy(self):
         chassis_xy = self.root_states[:, :2] - self.start_xy
-        err = torch.sum(torch.norm(chassis_xy - self.target_chassis_pos_xy), dim=1)
+        err = torch.sum(torch.norm(chassis_xy - self.target_chassis_pos_xy))
         return -err
 
     def _reward_lin_vel_z(self):
@@ -1160,64 +1158,6 @@ class PointFootSalsa:
             torch.pow(torque / torque_limit, 8),
             dim=1,
         )
-
-    def _reward_tracking_contacts_shaped_force(self):
-        foot_forces = torch.norm(self.contact_forces[:, self.feet_indices, :], dim=-1)
-        desired_contact = self.desired_contact_states
-
-        reward = 0
-        if self.reward_scales["tracking_contacts_shaped_force"] > 0:
-            for i in range(len(self.feet_indices)):
-                swing_phase = 1 - desired_contact[:, i]
-                reward += swing_phase * torch.exp(
-                    -foot_forces[:, i] ** 2 / self.cfg.rewards.gait_force_sigma
-                )
-        else:
-            for i in range(len(self.feet_indices)):
-                swing_phase = 1 - desired_contact[:, i]
-                reward += swing_phase * (
-                        1
-                        - torch.exp(
-                    -foot_forces[:, i] ** 2 / self.cfg.rewards.gait_force_sigma
-                )
-                )
-
-        return reward / len(self.feet_indices)
-
-    def _reward_tracking_contacts_shaped_vel(self):
-        foot_velocities = torch.norm(self.foot_velocities, dim=-1)
-        desired_contact = self.desired_contact_states
-        reward = 0
-        if self.reward_scales["tracking_contacts_shaped_vel"] > 0:
-            for i in range(len(self.feet_indices)):
-                stand_phase = desired_contact[:, i]
-                reward += stand_phase * torch.exp(
-                    -foot_velocities[:, i] ** 2 / self.cfg.rewards.gait_vel_sigma
-                )
-        else:
-            for i in range(len(self.feet_indices)):
-                stand_phase = desired_contact[:, i]
-                reward += stand_phase * (
-                        1
-                        - torch.exp(
-                    -foot_velocities[:, i] ** 2 / self.cfg.rewards.gait_vel_sigma
-                )
-                )
-        return reward / len(self.feet_indices)
-
-    def _reward_tracking_contacts_shaped_height(self):
-        foot_heights = self.foot_heights
-        desired_contact = self.desired_contact_states
-        reward = 0
-        if self.reward_scales["tracking_contacts_shaped_height"] > 0:
-            for i in range(len(self.feet_indices)):
-                stand_phase = desired_contact[:, i]
-                reward += stand_phase * torch.exp(-(foot_heights[:, i]) ** 2 / self.cfg.rewards.gait_height_sigma)
-        else:
-            for i in range(len(self.feet_indices)):
-                stand_phase = desired_contact[:, i]
-                reward += stand_phase * (1 - torch.exp(-(foot_heights[:, i]) ** 2 / self.cfg.rewards.gait_height_sigma))
-        return reward / len(self.feet_indices)
 
     def _reward_stand_still(self):
         # Penalize motion at zero commands

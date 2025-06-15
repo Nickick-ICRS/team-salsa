@@ -36,8 +36,8 @@ class PointFootSFSalsaReferences:
         self.references = torch.stack([
             torch.nn.functional.pad(ref, (0, 0, 0, max_len - l))
             for l, ref in zip(self.ref_lens, self.references)
-        ], dim=0).to(device)
-        self.ref_lens = torch.tensor(self.ref_lens, device=device, requires_grad=False)
+        ], dim=0).to(device).float()
+        self.ref_lens = torch.tensor(self.ref_lens, device=device, requires_grad=False, dtype=torch.float32)
 
     def get_reference_count(self):
         return len(self.references)
@@ -47,6 +47,6 @@ class PointFootSFSalsaReferences:
         idx0 = torch.floor(scaled).long()
         idx1 = torch.ceil(scaled).long()
         w = (scaled - idx0).unsqueeze(-1)
-        ref0 = self.references[indices, idx0, :]
-        ref1 = self.references[indices, idx1, :]
+        ref0 = self.references[indices.long(), idx0, :]
+        ref1 = self.references[indices.long(), idx1, :]
         return (1-w) * ref0 + w * ref1
